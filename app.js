@@ -1,7 +1,9 @@
 const STORAGE_KEY = 'postpilot-state-v1';
 const DB_NAME = 'postpilot-media-v1';
 const DB_STORE = 'images';
-const API_BASE_URL = localStorage.getItem('postpilot-api-base-url') || '';
+const API_BASE_URL =
+  localStorage.getItem('postpilot-api-base-url') ||
+  'https://postpilot-backend-qr0p.onrender.com';
 const defaultState = {
   accounts: [
     { id: 'a', handle: '@account_a', color: '#4de8ff', slots: ['09:00','12:10','18:30'], connectionStatus: 'pending', displayName: 'Main account' },
@@ -140,6 +142,30 @@ function renderConnectedAccounts(){
   $$('[data-active-account]').forEach(btn=>btn.onclick=()=>{state.activeAccountId=btn.dataset.activeAccount; switchView('composer'); render();});
   $$('[data-connect]').forEach(btn=>btn.onclick=()=>{window.location.href = API_BASE_URL ? `${API_BASE_URL}/auth/x/start` : '#';});
 }
+
+async function hydrateConnectedAccounts(){
+  const payload = await apiRequest('/api/accounts').catch(()=>null);
+  if(!payload?.accounts?.length) return;
+  for(const remote of payload.accounts){
+    const existing = state.accounts.find(a => a.handle === remote.handle);
+    if(existing){
+      Object.assign(existing, {
+        id: remote.id,
+        displayName: remote.displayName,
+        connectionStatus: 'connected'
+      });
+    } else {
+      state.accounts.push({
+        id: remote.id,
+        handle: remote.handle,
+        displayName: remote.displayName,
+        color: state.accounts.length % 2 === 0 ? '#4de8ff' : '#9c7bff',
+        slots: ['09:00','12:10','18:30'],
+        connectionStatus: 'connected'
+      });
+    }
+  }
+}
 function renderConnectionSummary(){
   const connected = state.accounts.filter(a=>a.connectionStatus==='connected').length;
   $('#connectionSummary').innerHTML = `
@@ -174,6 +200,16 @@ function switchView(view){
   $$('[data-view]').forEach(x=>x.classList.toggle('active', x.dataset.view===view));
   $$('.view').forEach(v=>v.classList.remove('active'));
   $(`#${view}View`).classList.add('active');
+}
+
+function applyConnectionResultFromUrl(){
+  const params = new URLSearchParams(window.location.search);
+  if(params.get('connected') !== '1') return;
+  const handle = params.get('handle');
+  if(handle){
+    showFeedback(`@${handle} を連携しました。`);
+  }
+  window.history.replaceState({}, '', window.location.pathname);
 }
 
 function renderSlots(){
@@ -263,4 +299,5 @@ $('#reserveButton').addEventListener('click',()=>{
   $('#postText').value=''; state.draftText=''; state.images=[]; state.draftImageIds=[]; $('#manualToggle').checked=false; $('#manualPicker').classList.add('hidden'); $('#reserveButton').textContent='次の固定枠で予約'; hydrateDraftImages().then(()=>{render(); if(!API_BASE_URL) showFeedback('予約しました。','success');});
 });
 $$('[data-view]').forEach(btn=>btn.onclick=()=>switchView(btn.dataset.view));
-hydrateDraftImages().then(render);
+Promise.all([hydrateDraftImages(), hydrateConnectedAccounts()]).then(render);
+applyConnectionResultFromUrl();
