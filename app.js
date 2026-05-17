@@ -1,10 +1,11 @@
 const STORAGE_KEY = 'postpilot-state-v1';
 const DB_NAME = 'postpilot-media-v1';
 const DB_STORE = 'images';
+const API_BASE_URL = localStorage.getItem('postpilot-api-base-url') || '';
 const defaultState = {
   accounts: [
-    { id: 'a', handle: '@account_a', color: '#4de8ff', slots: ['09:00','12:10','18:30'] },
-    { id: 'b', handle: '@account_b', color: '#9c7bff', slots: ['09:00','12:10','18:30'] }
+    { id: 'a', handle: '@account_a', color: '#4de8ff', slots: ['09:00','12:10','18:30'], connectionStatus: 'pending', displayName: 'Main account' },
+    { id: 'b', handle: '@account_b', color: '#9c7bff', slots: ['09:00','12:10','18:30'], connectionStatus: 'pending', displayName: 'Second account' }
   ],
   activeAccountId: 'a',
   draftText: '投稿文を書く。日時を触らなければ、自動で次の固定枠へ。',
@@ -23,7 +24,11 @@ function loadState(){
     return {
       ...structuredClone(defaultState),
       ...parsed,
-      accounts: parsed.accounts?.length ? parsed.accounts : structuredClone(defaultState.accounts),
+      accounts: parsed.accounts?.length ? parsed.accounts.map((a,i)=>({
+        ...structuredClone(defaultState.accounts[i] || defaultState.accounts[0]),
+        ...a,
+        connectionStatus: a.connectionStatus || 'pending'
+      })) : structuredClone(defaultState.accounts),
       queue: Array.isArray(parsed.queue) ? parsed.queue.map(q=>({...q, imageIds: Array.isArray(q.imageIds) ? q.imageIds : []})) : structuredClone(defaultState.queue),
       draftText: typeof parsed.draftText === 'string' ? parsed.draftText : defaultState.draftText,
       draftImageIds: Array.isArray(parsed.draftImageIds) ? parsed.draftImageIds : [],
@@ -38,6 +43,16 @@ function saveState(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
 }
 const state = loadState();
+
+async function apiRequest(path, options={}){
+  if(!API_BASE_URL) return null;
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    ...options
+  });
+  if(!res.ok) throw new Error(`API request failed: ${res.status}`);
+  return res.json();
+}
 
 function openDb(){
   return new Promise((resolve,reject)=>{
@@ -102,6 +117,65 @@ function renderAccounts(){
   $('#accountChips').innerHTML = state.accounts.map(a=>`<button class="account-chip ${a.id===state.activeAccountId?'active':''}" data-account="${a.id}"><span class="dot" style="background:${a.color}"></span>${a.handle}</button>`).join('');
   $$('[data-account]').forEach(btn=>btn.onclick=()=>{state.activeAccountId=btn.dataset.account; render();});
 }
+
+function statusLabel(status){
+  if(status==='connected') return '連携済み';
+  if(status==='pending') return '未接続';
+  return '切断';
+}
+function renderConnectedAccounts(){
+  $('#accountCards').innerHTML = state.accounts.map(a=>`
+    <div class="account-card">
+      <div class="account-meta">
+        <strong>${a.handle}</strong>
+        <span>${a.displayName || ''}</span>
+        <span class="status ${a.connectionStatus}"><span class="status-dot" style="background:${a.connectionStatus==='connected'?'var(--lime)':a.connectionStatus==='pending'?'#ffd66e':'var(--muted)'}"></span>${statusLabel(a.connectionStatus)}</span>
+        ${a.connectionStatus==='connected'?'<small class="muted-strong">投稿可能</small>':''}
+      </div>
+      <div class="account-actions">
+        <button class="ghost primary-soft" data-connect="${a.id}">${a.connectionStatus==='connected'?'再連携':'連携する'}</button>
+        <button class="ghost" data-active-account="${a.id}">この垢で作成</button>
+      </div>
+    </div>`).join('');
+  $$('[data-active-account]').forEach(btn=>btn.onclick=()=>{state.activeAccountId=btn.dataset.activeAccount; switchView('composer'); render();});
+  $$('[data-connect]').forEach(btn=>btn.onclick=()=>{window.location.href = API_BASE_URL ? `${API_BASE_URL}/auth/x/start` : '#';});
+}
+function renderConnectionSummary(){
+  const connected = state.accounts.filter(a=>a.connectionStatus==='connected').length;
+  $('#connectionSummary').innerHTML = `
+    <div class="summary-row"><span>連携済み</span><strong>${connected}/2</strong></div>
+    <div class="summary-row"><span>現在の投稿先</span><strong>${activeAccount().handle}</strong></div>
+    ${connected<2?'<div class="notice">2垢とも連携すると、予約投稿の流れが完成します。</div>':''}`;
+}
+function renderComposerNotice(){
+  let box = $('#composerNotice');
+  if(!box){
+    box = document.createElement('div'); box.id='composerNotice'; box.className='composer-alert';
+    $('.composer').insertBefore(box, $('#postText'));
+  }
+  const a = activeAccount();
+  box.textContent = a.connectionStatus==='connected' ? `${a.handle} に投稿できます。` : `${a.handle} はまだ未連携です。今は下書きと予約設計まで使えます。`;
+}
+
+function renderComposerMeta(){
+  const count = $('#postText').value.length;
+  $('#charCount').textContent = `${count} / 280`;
+  $('#charCount').style.color = count > 280 ? 'var(--danger)' : 'var(--muted)';
+}
+function showFeedback(message, type='success'){
+  const box = $('#composerFeedback');
+  box.textContent = message;
+  box.className = `feedback ${type==='error'?'error':''}`;
+  clearTimeout(showFeedback.timer);
+  showFeedback.timer = setTimeout(()=>box.classList.add('hidden'), 2200);
+}
+
+function switchView(view){
+  $$('[data-view]').forEach(x=>x.classList.toggle('active', x.dataset.view===view));
+  $$('.view').forEach(v=>v.classList.remove('active'));
+  $(`#${view}View`).classList.add('active');
+}
+
 function renderSlots(){
   const a = activeAccount();
   $('#slotRail').innerHTML = a.slots.map((s,i)=>`<div class="slot-row"><span>${['Morning','Lunch','Evening'][i]||'Slot'}</span><strong>${s}</strong></div>`).join('');
@@ -118,7 +192,9 @@ function renderPreview(){
   $('#previewText').textContent = $('#postText').value || '投稿文を書く';
   $('#previewImages').innerHTML = state.images.map(img=>`<img src="${img.url}" alt="preview">`).join('');
   $('#mediaHint').textContent = state.images.length ? `画像 ${state.images.length}枚` : '画像なし';
-  $('#imageStrip').innerHTML = state.images.map((img,i)=>`<div class="thumb" style="background-image:url('${img.url}')"><button class="remove" data-remove="${i}">×</button></div>`).join('');
+  $('#imageStrip').innerHTML = state.images.map((img,i)=>`<div class="thumb" style="background-image:url('${img.url}')"><button class="remove" data-remove="${i}">×</button><div class="thumb-controls"><button class="thumb-move" data-left="${i}">‹</button><button class="thumb-move" data-right="${i}">›</button></div></div>`).join('');
+  $$('[data-left]').forEach(btn=>btn.onclick=()=>{const i=+btn.dataset.left;if(i>0){[state.images[i-1],state.images[i]]=[state.images[i],state.images[i-1]];[state.draftImageIds[i-1],state.draftImageIds[i]]=[state.draftImageIds[i],state.draftImageIds[i-1]];renderPreview();saveState();}});
+  $$('[data-right]').forEach(btn=>btn.onclick=()=>{const i=+btn.dataset.right;if(i<state.images.length-1){[state.images[i+1],state.images[i]]=[state.images[i],state.images[i+1]];[state.draftImageIds[i+1],state.draftImageIds[i]]=[state.draftImageIds[i],state.draftImageIds[i+1]];renderPreview();saveState();}});
   $$('[data-remove]').forEach(btn=>btn.onclick=async()=>{
     const [removed] = state.images.splice(+btn.dataset.remove,1);
     state.draftImageIds = state.draftImageIds.filter(id=>id!==removed.id);
@@ -160,9 +236,9 @@ async function renderQueue(){
     render();
   });
 }
-function render(){renderAccounts();renderSlots();renderSchedule();renderPreview();renderQueue();saveState();}
+function render(){renderAccounts();renderConnectedAccounts();renderConnectionSummary();renderComposerNotice();renderSlots();renderSchedule();renderPreview();renderQueue();renderComposerMeta();saveState();}
 $('#postText').value = state.draftText;
-$('#postText').addEventListener('input', ()=>{state.draftText=$('#postText').value; renderPreview(); saveState();});
+$('#postText').addEventListener('input', ()=>{state.draftText=$('#postText').value; renderPreview(); renderComposerMeta(); $('#saveState').textContent='保存済み'; saveState();});
 $('#imageInput').addEventListener('change', async e=>{
   for(const file of [...e.target.files].slice(0,4-state.images.length)){
     const id = crypto.randomUUID();
@@ -179,12 +255,12 @@ $('#manualToggle').addEventListener('change', e=>{
 $('#reserveButton').addEventListener('click',()=>{
   const manual = $('#manualToggle').checked;
   const scheduledAt = manual && $('#manualDateTime').value ? $('#manualDateTime').value : nextSlot(activeAccount());
-  state.queue.push({id:crypto.randomUUID(),accountId:state.activeAccountId,text:($('#postText').value||'無題の投稿').slice(0,28),scheduledAt,imageIds:[...state.draftImageIds]});
-  $('#postText').value=''; state.draftText=''; state.images=[]; state.draftImageIds=[]; $('#manualToggle').checked=false; $('#manualPicker').classList.add('hidden'); $('#reserveButton').textContent='次の固定枠で予約'; hydrateDraftImages().then(render);
+  const newPost = {id:crypto.randomUUID(),accountId:state.activeAccountId,text:($('#postText').value||'無題の投稿').slice(0,28),scheduledAt,imageIds:[...state.draftImageIds]};
+  state.queue.push(newPost);
+  apiRequest('/api/posts', { method:'POST', body: JSON.stringify(newPost) })
+    .then(()=>showFeedback('予約しました。'))
+    .catch(()=>showFeedback('ローカルには保存しました。送信サーバーは未接続です。','error'));
+  $('#postText').value=''; state.draftText=''; state.images=[]; state.draftImageIds=[]; $('#manualToggle').checked=false; $('#manualPicker').classList.add('hidden'); $('#reserveButton').textContent='次の固定枠で予約'; hydrateDraftImages().then(()=>{render(); if(!API_BASE_URL) showFeedback('予約しました。','success');});
 });
-$$('[data-view]').forEach(btn=>btn.onclick=()=>{
-  $$('[data-view]').forEach(x=>x.classList.remove('active'));
-  $$(`[data-view="${btn.dataset.view}"]`).forEach(x=>x.classList.add('active'));
-  $$('.view').forEach(v=>v.classList.remove('active')); $(`#${btn.dataset.view}View`).classList.add('active');
-});
+$$('[data-view]').forEach(btn=>btn.onclick=()=>switchView(btn.dataset.view));
 hydrateDraftImages().then(render);

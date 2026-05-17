@@ -15,6 +15,7 @@
       <nav class="nav">
         <button class="nav-item active" data-view="composer">Composer</button>
         <button class="nav-item" data-view="queue">Queue</button>
+        <button class="nav-item" data-view="accounts">Accounts</button>
         <button class="nav-item" data-view="settings">Settings</button>
       </nav>
       <section class="account-mini">
@@ -42,6 +43,11 @@
 
             <textarea id="postText" placeholder="投稿文を書く"></textarea>
 
+            <div class="meta-row">
+              <span id="charCount">0 / 280</span>
+              <span id="saveState">保存済み</span>
+            </div>
+
             <div class="media-row">
               <label class="media-button" for="imageInput">画像を追加</label>
               <input id="imageInput" type="file" accept="image/*" multiple hidden />
@@ -49,6 +55,7 @@
             </div>
 
             <div id="imageStrip" class="image-strip"></div>
+            <div id="composerFeedback" class="feedback hidden"></div>
 
             <div class="schedule-row">
               <div>
@@ -89,6 +96,19 @@
         </section>
       </section>
 
+      <section class="view" id="accountsView">
+        <section class="panel glass">
+          <div class="section-head accounts-head">
+            <div>
+              <p class="label">Connected accounts</p>
+              <strong>2垢を、ここで一目で見る。</strong>
+            </div>
+            <button class="ghost" id="connectAccountButton">Xアカウントを追加</button>
+          </div>
+          <div id="accountCards" class="account-cards"></div>
+        </section>
+      </section>
+
       <section class="view" id="settingsView">
         <section class="panel glass">
           <div class="section-head">
@@ -105,6 +125,10 @@
         <div id="slotRail" class="slot-list"></div>
       </section>
       <section class="rail-card glass">
+        <p class="label">Connection</p>
+        <div id="connectionSummary" class="connection-summary"></div>
+      </section>
+      <section class="rail-card glass">
         <p class="label">Rule</p>
         <p class="muted">日時未指定なら、そのアカウントの次の空き固定枠へ。埋まっていれば、その次の枠へ送る。</p>
       </section>
@@ -113,6 +137,7 @@
     <nav class="bottom-nav glass">
       <button class="bottom-item active" data-view="composer">作成</button>
       <button class="bottom-item" data-view="queue">予約</button>
+      <button class="bottom-item" data-view="accounts">連携</button>
       <button class="bottom-item" data-view="settings">設定</button>
     </nav>
   </div>
