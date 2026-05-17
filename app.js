@@ -6,8 +6,8 @@ const API_BASE_URL =
   'https://postpilot-backend-qr0p.onrender.com';
 const defaultState = {
   accounts: [
-    { id: 'a', handle: '@account_a', color: '#4de8ff', slots: ['09:00','12:10','18:30'], connectionStatus: 'pending', displayName: 'Main account' },
-    { id: 'b', handle: '@account_b', color: '#9c7bff', slots: ['09:00','12:10','18:30'], connectionStatus: 'pending', displayName: 'Second account' }
+    { id: 'a', handle: '@account_a', color: '#4de8ff', slots: ['09:00','12:10','18:30'], connectionStatus: 'pending', displayName: 'Main account', placeholder: true },
+    { id: 'b', handle: '@account_b', color: '#9c7bff', slots: ['09:00','12:10','18:30'], connectionStatus: 'pending', displayName: 'Second account', placeholder: true }
   ],
   activeAccountId: 'a',
   draftText: '投稿文を書く。日時を触らなければ、自動で次の固定枠へ。',
@@ -146,6 +146,9 @@ function renderConnectedAccounts(){
 async function hydrateConnectedAccounts(){
   const payload = await apiRequest('/api/accounts').catch(()=>null);
   if(!payload?.accounts?.length) return;
+  if(state.accounts.some(a => a.placeholder)){
+    state.accounts = [];
+  }
   for(const remote of payload.accounts){
     const existing = state.accounts.find(a => a.handle === remote.handle);
     if(existing){
@@ -161,9 +164,13 @@ async function hydrateConnectedAccounts(){
         displayName: remote.displayName,
         color: state.accounts.length % 2 === 0 ? '#4de8ff' : '#9c7bff',
         slots: ['09:00','12:10','18:30'],
-        connectionStatus: 'connected'
+        connectionStatus: 'connected',
+        placeholder: false
       });
     }
+  }
+  if(!state.accounts.some(a => a.id === state.activeAccountId)){
+    state.activeAccountId = state.accounts[0]?.id || state.activeAccountId;
   }
 }
 function renderConnectionSummary(){
