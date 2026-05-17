@@ -83,6 +83,14 @@ async function getImage(id){
     req.onsuccess=()=>resolve(req.result); req.onerror=()=>reject(req.error);
   });
 }
+function blobToDataUrl(blob){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>resolve(reader.result);
+    reader.onerror = ()=>reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
 async function deleteImage(id){
   const db = await openDb();
   return new Promise((resolve,reject)=>{
@@ -173,6 +181,14 @@ async function hydrateConnectedAccounts(){
   if(!state.accounts.some(a => a.id === state.activeAccountId)){
     state.activeAccountId = state.accounts[0]?.id || state.activeAccountId;
   }
+}
+async function hydrateScheduledPosts(){
+  const payload = await apiRequest('/api/posts').catch(()=>null);
+  if(!payload?.posts) return;
+  state.queue = payload.posts.map(post => ({
+    ...post,
+    imageIds: Array.isArray(post.imageIds) ? post.imageIds : []
+  }));
 }
 function renderConnectionSummary(){
   const connected = state.accounts.filter(a=>a.connectionStatus==='connected').length;
@@ -296,16 +312,35 @@ $('#manualToggle').addEventListener('change', e=>{
   $('#manualPicker').classList.toggle('hidden', !e.target.checked);
   $('#reserveButton').textContent = e.target.checked ? '指定日時で予約' : '次の固定枠で予約';
 });
-$('#reserveButton').addEventListener('click',()=>{
+$('#reserveButton').addEventListener('click', async()=>{
   const manual = $('#manualToggle').checked;
   const scheduledAt = manual && $('#manualDateTime').value ? $('#manualDateTime').value : nextSlot(activeAccount());
-  const newPost = {id:crypto.randomUUID(),accountId:state.activeAccountId,text:($('#postText').value||'無題の投稿').slice(0,28),scheduledAt,imageIds:[...state.draftImageIds]};
-  state.queue.push(newPost);
-  apiRequest('/api/posts', { method:'POST', body: JSON.stringify(newPost) })
-    .then(()=>showFeedback('予約しました。'))
-    .catch(()=>showFeedback('ローカルには保存しました。送信サーバーは未接続です。','error'));
+  const imagePayloads = await Promise.all(state.draftImageIds.map(async id => {
+    const blob = await getImage(id);
+    return blob ? {
+      id,
+      dataUrl: await blobToDataUrl(blob),
+      mediaType: blob.type || 'image/png'
+    } : null;
+  }));
+  const newPost = {
+    id:crypto.randomUUID(),
+    accountId:state.activeAccountId,
+    text:($('#postText').value||'無題の投稿').slice(0,280),
+    scheduledAt,
+    imageIds:[...state.draftImageIds],
+    images:imagePayloads.filter(Boolean)
+  };
+  try{
+    const payload = await apiRequest('/api/posts', { method:'POST', body: JSON.stringify(newPost) });
+    state.queue.push(payload?.post || newPost);
+    showFeedback('予約しました。');
+  }catch{
+    state.queue.push(newPost);
+    showFeedback('ローカルには保存しました。送信サーバーへ送れませんでした。','error');
+  }
   $('#postText').value=''; state.draftText=''; state.images=[]; state.draftImageIds=[]; $('#manualToggle').checked=false; $('#manualPicker').classList.add('hidden'); $('#reserveButton').textContent='次の固定枠で予約'; hydrateDraftImages().then(()=>{render(); if(!API_BASE_URL) showFeedback('予約しました。','success');});
 });
 $$('[data-view]').forEach(btn=>btn.onclick=()=>switchView(btn.dataset.view));
-Promise.all([hydrateDraftImages(), hydrateConnectedAccounts()]).then(render);
+Promise.all([hydrateDraftImages(), hydrateConnectedAccounts(), hydrateScheduledPosts()]).then(render);
 applyConnectionResultFromUrl();
