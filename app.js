@@ -146,7 +146,8 @@ function renderConnectedAccounts(){
 async function hydrateConnectedAccounts(){
   const payload = await apiRequest('/api/accounts').catch(()=>null);
   if(!payload?.accounts?.length) return;
-  if(state.accounts.some(a => a.placeholder)){
+  const legacyPlaceholderHandles = new Set(['@account_a', '@account_b']);
+  if(state.accounts.some(a => a.placeholder || legacyPlaceholderHandles.has(a.handle))){
     state.accounts = [];
   }
   for(const remote of payload.accounts){
