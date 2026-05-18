@@ -3,144 +3,54 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PostPilot</title>
+  <title>Review Queue</title>
   <link rel="manifest" href="./manifest.webmanifest" />
-  <meta name="theme-color" content="#050814" />
+  <meta name="theme-color" content="#070913" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <div class="shell">
-    <aside class="sidebar glass">
-      <div class="brand">Post<span>Pilot</span></div>
-      <nav class="nav">
-        <button class="nav-item active" data-view="composer">Composer</button>
-        <button class="nav-item" data-view="queue">Queue</button>
-        <button class="nav-item" data-view="accounts">Accounts</button>
-        <button class="nav-item" data-view="settings">Settings</button>
-      </nav>
-      <section class="account-mini">
-        <p class="label">Accounts</p>
-        <div id="sidebarAccounts"></div>
-      </section>
-    </aside>
+  <main class="app-shell">
+    <header class="hero card">
+      <div>
+        <p class="eyebrow">review.md</p>
+        <h1>投稿レビュー</h1>
+        <p class="hero-copy">採用するものだけチェック。修正はファイルで行い、ここでは選ぶだけ。</p>
+      </div>
+      <div class="pending-pill" aria-live="polite">
+        <span id="pendingCount">--</span>
+        <small>件待ち</small>
+      </div>
+    </header>
 
-    <main class="main">
-      <section class="hero glass">
+    <section class="status-grid" aria-label="状態">
+      <article class="status-card card">
+        <p class="eyebrow">stock</p>
+        <strong id="stockCount">--</strong>
+        <span>件</span>
+      </article>
+      <article class="status-card card">
+        <p class="eyebrow">status</p>
+        <strong id="reviewStatus">読込中</strong>
+      </article>
+    </section>
+
+    <section class="review-panel card" aria-labelledby="reviewTitle">
+      <div class="section-head">
         <div>
-          <p class="label">Next scheduled post</p>
-          <h1>次の固定枠に、そのまま置く。</h1>
+          <p class="eyebrow">pending review</p>
+          <h2 id="reviewTitle">候補投稿</h2>
         </div>
-        <div class="next-slot" id="heroNextSlot"></div>
-      </section>
+        <button id="refreshButton" class="quiet-button" type="button">再読込</button>
+      </div>
 
-      <section class="view active" id="composerView">
-        <div class="composer-grid">
-          <section class="composer glass">
-            <div class="section-head">
-              <p class="label">Composer</p>
-              <div id="accountChips" class="chip-row"></div>
-            </div>
+      <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
+      <div id="postList" class="post-list"></div>
 
-            <textarea id="postText" placeholder="投稿文を書く"></textarea>
-
-            <div class="meta-row">
-              <span id="charCount">0 / 280</span>
-              <span id="saveState">保存済み</span>
-            </div>
-
-            <div class="media-row">
-              <label class="media-button" for="imageInput">画像を追加</label>
-              <input id="imageInput" type="file" accept="image/*" multiple hidden />
-              <div class="media-hint" id="mediaHint">画像なし</div>
-            </div>
-
-            <div id="imageStrip" class="image-strip"></div>
-            <div id="composerFeedback" class="feedback hidden"></div>
-
-            <div class="schedule-row">
-              <div>
-                <p class="label">Schedule</p>
-                <strong id="autoSchedule"></strong>
-              </div>
-              <label class="manual-toggle">
-                <input type="checkbox" id="manualToggle" />
-                手動指定
-              </label>
-            </div>
-
-            <div class="manual-picker hidden" id="manualPicker">
-              <input type="datetime-local" id="manualDateTime" />
-            </div>
-
-            <button class="primary" id="reserveButton">次の固定枠で予約</button>
-          </section>
-
-          <aside class="preview glass">
-            <p class="label">Live Preview</p>
-            <div class="tweet-card">
-              <div class="tweet-account" id="previewAccount"></div>
-              <div class="tweet-body" id="previewText"></div>
-              <div id="previewImages" class="preview-images"></div>
-            </div>
-          </aside>
-        </div>
-      </section>
-
-      <section class="view" id="queueView">
-        <section class="panel glass">
-          <div class="section-head">
-            <p class="label">Queue</p>
-            <strong id="queueCount"></strong>
-          </div>
-          <div id="queueList" class="queue-list"></div>
-        </section>
-      </section>
-
-      <section class="view" id="accountsView">
-        <section class="panel glass">
-          <div class="section-head accounts-head">
-            <div>
-              <p class="label">Connected accounts</p>
-              <strong>2垢を、ここで一目で見る。</strong>
-            </div>
-            <button class="ghost" id="connectAccountButton">Xアカウントを追加</button>
-          </div>
-          <div id="accountCards" class="account-cards"></div>
-        </section>
-      </section>
-
-      <section class="view" id="settingsView">
-        <section class="panel glass">
-          <div class="section-head">
-            <p class="label">Fixed slots</p>
-          </div>
-          <div id="slotSettings" class="slot-settings"></div>
-        </section>
-      </section>
-    </main>
-
-    <aside class="right-rail">
-      <section class="rail-card glass">
-        <p class="label">Posting slots</p>
-        <div id="slotRail" class="slot-list"></div>
-      </section>
-      <section class="rail-card glass">
-        <p class="label">Connection</p>
-        <div id="connectionSummary" class="connection-summary"></div>
-      </section>
-      <section class="rail-card glass">
-        <p class="label">Rule</p>
-        <p class="muted">日時未指定なら、そのアカウントの次の空き固定枠へ。埋まっていれば、その次の枠へ送る。</p>
-      </section>
-    </aside>
-
-    <nav class="bottom-nav glass">
-      <button class="bottom-item active" data-view="composer">作成</button>
-      <button class="bottom-item" data-view="queue">予約</button>
-      <button class="bottom-item" data-view="accounts">連携</button>
-      <button class="bottom-item" data-view="settings">設定</button>
-    </nav>
-  </div>
+      <button id="completeButton" class="primary-button" type="button" disabled>
+        レビュー完了
+      </button>
+    </section>
+  </main>
 
   <script src="./app.js"></script>
 </body>

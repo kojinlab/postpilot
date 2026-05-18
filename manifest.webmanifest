@@ -1,9 +1,9 @@
 {
-  "name": "PostPilot",
-  "short_name": "PostPilot",
+  "name": "Review Queue",
+  "short_name": "Review",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#050814",
-  "theme_color": "#050814",
+  "background_color": "#070913",
+  "theme_color": "#070913",
   "icons": []
 }
