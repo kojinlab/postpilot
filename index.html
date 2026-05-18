@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Review Queue</title>
+  <title>投稿を作る</title>
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#070913" />
   <link rel="stylesheet" href="./styles.css" />
@@ -12,42 +12,69 @@
   <main class="app-shell">
     <header class="hero card">
       <div>
-        <p class="eyebrow">review.md</p>
-        <h1>投稿レビュー</h1>
-        <p class="hero-copy">採用するものだけチェック。修正はファイルで行い、ここでは選ぶだけ。</p>
+        <p class="eyebrow">stock studio</p>
+        <h1>投稿を作る</h1>
+        <p class="hero-copy">作るか、貼るか。候補を見て、残したい投稿だけ在庫へ送る。</p>
       </div>
       <div class="pending-pill" aria-live="polite">
-        <span id="pendingCount">--</span>
-        <small>件待ち</small>
+        <span id="candidateCount">--</span>
+        <small>候補</small>
       </div>
     </header>
 
+    <section class="composer-panel card" aria-label="候補を追加">
+      <div class="mode-tabs" role="tablist" aria-label="追加方法">
+        <button id="generateTab" class="mode-tab active" type="button" role="tab" aria-selected="true" data-mode="generate">
+          テーマから生成
+        </button>
+        <button id="importTab" class="mode-tab" type="button" role="tab" aria-selected="false" data-mode="import">
+          貼り付けて追加
+        </button>
+      </div>
+
+      <section id="generatePanel" class="mode-panel active" role="tabpanel" aria-labelledby="generateTab">
+        <label class="field-label" for="themeInput">テーマ</label>
+        <textarea id="themeInput" class="text-input compact" placeholder="例：AIで仕事が速くなる人と、逆に遅くなる人の違い"></textarea>
+        <p class="field-hint">同じテーマを、10本すべて違う切り口で作ります。</p>
+        <button id="generateButton" class="secondary-button" type="button">10案生成</button>
+      </section>
+
+      <section id="importPanel" class="mode-panel" role="tabpanel" aria-labelledby="importTab">
+        <label class="field-label" for="importInput">投稿を貼り付け</label>
+        <textarea id="importInput" class="text-input" placeholder="ChatGPTなどで作った投稿を貼る。複数ある場合は投稿ごとに --- で区切る。"></textarea>
+        <p class="field-hint">外で磨いた案もここへ。投稿ごとに <code>---</code> を挟むと、別の候補として入ります。</p>
+        <button id="importButton" class="secondary-button" type="button">候補に追加</button>
+      </section>
+    </section>
+
     <section class="status-grid" aria-label="状態">
       <article class="status-card card">
-        <p class="eyebrow">stock</p>
-        <strong id="stockCount">--</strong>
-        <span>件</span>
+        <p class="eyebrow">kojinlab</p>
+        <strong id="kojinlabCount">0</strong>
+        <span>件選択</span>
       </article>
       <article class="status-card card">
-        <p class="eyebrow">status</p>
-        <strong id="reviewStatus">読込中</strong>
+        <p class="eyebrow">ClaudeStart</p>
+        <strong id="claudeStartCount">0</strong>
+        <span>件選択</span>
       </article>
     </section>
 
-    <section class="review-panel card" aria-labelledby="reviewTitle">
+    <section class="candidate-panel card" aria-labelledby="candidateTitle">
       <div class="section-head">
         <div>
-          <p class="eyebrow">pending review</p>
-          <h2 id="reviewTitle">候補投稿</h2>
+          <p class="eyebrow">candidates</p>
+          <h2 id="candidateTitle">候補投稿</h2>
         </div>
         <button id="refreshButton" class="quiet-button" type="button">再読込</button>
       </div>
 
       <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
-      <div id="postList" class="post-list"></div>
+      <p id="selectionHint" class="selection-hint" aria-live="polite"></p>
+      <div id="candidateList" class="candidate-list"></div>
 
-      <button id="completeButton" class="primary-button" type="button" disabled>
-        レビュー完了
+      <button id="promoteButton" class="primary-button" type="button" disabled>
+        ストックへ保存
       </button>
     </section>
   </main>
